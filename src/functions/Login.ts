@@ -72,18 +72,31 @@ export class Login {
 
                 // When erroring at this stage it means a 2FA code is required
             } catch (error) {
-                this.bot.log('LOGIN', '2FA code required')
+                const hasSendPushNotification
+                    = await page.waitForSelector('#pushNotificationsTitle', { state: 'visible', timeout: 2000 })
+                        .then(() => true).catch(() => false)
 
-                // Wait for user input
-                const code = await new Promise<string>((resolve) => {
-                    rl.question('Enter 2FA code:\n', (input) => {
-                        rl.close()
-                        resolve(input)
+                if (hasSendPushNotification) {
+                    const numberElement = (await page.waitForSelector('span#displaySign',  { state: 'visible', timeout: 2000 }));
+                    const number = await numberElement.innerText();
+                    
+                    this.bot.log('LOGIN', '2FA code for "'+email+'": ' + number);
+
+                    await await page.waitForSelector('span#displaySign',  { state: 'hidden', timeout: 30000 })
+                } else {
+                    this.bot.log('LOGIN', '2FA code required')
+
+                    // Wait for user input
+                    const code = await new Promise<string>((resolve) => {
+                        rl.question('Enter 2FA code:\n', (input) => {
+                            rl.close()
+                            resolve(input)
+                        })
                     })
-                })
 
-                await page.fill('input[name="otc"]', code)
-                await page.keyboard.press('Enter')
+                    await page.fill('input[name="otc"]', code)
+                    await page.keyboard.press('Enter')
+                }
             }
 
             this.bot.log('LOGIN', 'Password entered successfully')
